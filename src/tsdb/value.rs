@@ -1,5 +1,6 @@
 use tokio::sync::RwLock;
 
+#[derive(PartialEq, Debug)]
 enum ValueType {
     Float,
     Integer,
@@ -8,8 +9,20 @@ enum ValueType {
 }
 
 struct Value<T> {
-    unix_nano: i128,
-    value: T,
+    pub unix_nano: i128,
+    pub value: T,
+}
+
+impl<T> Default for Value<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self {
+            unix_nano: i128::default(),
+            value: T::default(),
+        }
+    }
 }
 
 struct Values<T> {
@@ -17,8 +30,20 @@ struct Values<T> {
 }
 
 impl<T> Values<T> {
-    pub async fn push<T>(&mut self, v: Value<T>) {
+    pub async fn push(&mut self, v: Value<T>) {
         self.inner.write().await.push(v);
+    }
+
+    pub async fn len(&self) -> usize {
+        self.inner.read().await.len()
+    }
+}
+
+impl<T> Default for Values<T> {
+    fn default() -> Self {
+        Self {
+            inner: RwLock::new(Vec::new()),
+        }
     }
 }
 
@@ -52,5 +77,33 @@ impl TypedValues for BoolValues {
 impl TypedValues for StringValues {
     fn value_type(&self) -> ValueType {
         ValueType::String
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tsdb::value::{
+        BoolValues, FloatValues, InterValues, StringValues, TypedValues, Value, ValueType,
+    };
+    use std::collections::hash_map::Values;
+
+    #[tokio::test]
+    async fn test_push() {
+        let mut values = FloatValues::default();
+        values
+            .push(Value {
+                unix_nano: 100,
+                value: 10.1,
+            })
+            .await;
+        assert_eq!(values.len().await, 1);
+    }
+
+    #[test]
+    fn test_type() {
+        assert_eq!(FloatValues::default().value_type(), ValueType::Float);
+        assert_eq!(InterValues::default().value_type(), ValueType::Integer);
+        assert_eq!(BoolValues::default().value_type(), ValueType::Bool);
+        assert_eq!(StringValues::default().value_type(), ValueType::String)
     }
 }

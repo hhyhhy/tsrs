@@ -8,7 +8,6 @@ pub enum FieldValue {
     String(String),
 }
 
-#[derive(Debug, Clone)]
 pub struct Point {
     pub measurement: String,
     pub tags: HashMap<String, String>,
