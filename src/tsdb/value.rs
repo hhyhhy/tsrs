@@ -1,9 +1,8 @@
-use tokio::sync::RwLock;
-
 #[derive(PartialEq, Debug)]
 enum ValueType {
-    Float,
-    Integer,
+    F64,
+    I64,
+    U64,
     Bool,
     String,
 }
@@ -11,6 +10,12 @@ enum ValueType {
 struct Value<T> {
     pub unix_nano: i128,
     pub value: T,
+}
+
+impl<T> Value<T> {
+    pub fn new(unix_nano: i128, value: T) -> Self {
+        Self { unix_nano, value }
+    }
 }
 
 impl<T> Default for Value<T>
@@ -26,24 +31,26 @@ where
 }
 
 struct Values<T> {
-    inner: RwLock<Vec<Value<T>>>,
+    inner: Vec<Value<T>>,
 }
 
 impl<T> Values<T> {
-    pub async fn push(&mut self, v: Value<T>) {
-        self.inner.write().await.push(v);
+    pub fn new() -> Self {
+        Self { inner: vec![] }
     }
 
-    pub async fn len(&self) -> usize {
-        self.inner.read().await.len()
+    pub fn push(&mut self, v: Value<T>) {
+        self.inner.push(v);
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
     }
 }
 
 impl<T> Default for Values<T> {
     fn default() -> Self {
-        Self {
-            inner: RwLock::new(Vec::new()),
-        }
+        Values::new()
     }
 }
 
@@ -51,20 +58,27 @@ trait TypedValues {
     fn value_type(&self) -> ValueType;
 }
 
-type FloatValues = Values<f64>;
-type InterValues = Values<i64>;
+type F64Values = Values<f64>;
+type I64Values = Values<i64>;
+type U64Values = Values<u64>;
 type BoolValues = Values<bool>;
 type StringValues = Values<String>;
 
-impl TypedValues for FloatValues {
+impl TypedValues for F64Values {
     fn value_type(&self) -> ValueType {
-        ValueType::Float
+        ValueType::F64
     }
 }
 
-impl TypedValues for InterValues {
+impl TypedValues for I64Values {
     fn value_type(&self) -> ValueType {
-        ValueType::Integer
+        ValueType::I64
+    }
+}
+
+impl TypedValues for U64Values {
+    fn value_type(&self) -> ValueType {
+        ValueType::U64
     }
 }
 
@@ -83,27 +97,22 @@ impl TypedValues for StringValues {
 #[cfg(test)]
 mod tests {
     use crate::tsdb::value::{
-        BoolValues, FloatValues, InterValues, StringValues, TypedValues, Value, ValueType,
+        BoolValues, F64Values, I64Values, StringValues, TypedValues, U64Values, Value, ValueType,
     };
-    use std::collections::hash_map::Values;
 
-    #[tokio::test]
-    async fn test_push() {
-        let mut values = FloatValues::default();
-        values
-            .push(Value {
-                unix_nano: 100,
-                value: 10.1,
-            })
-            .await;
-        assert_eq!(values.len().await, 1);
+    #[test]
+    fn test_push() {
+        let mut values = F64Values::default();
+        values.push(Value::new(100, 10.1));
+        assert_eq!(values.len(), 1);
     }
 
     #[test]
     fn test_type() {
-        assert_eq!(FloatValues::default().value_type(), ValueType::Float);
-        assert_eq!(InterValues::default().value_type(), ValueType::Integer);
+        assert_eq!(F64Values::default().value_type(), ValueType::F64);
+        assert_eq!(I64Values::default().value_type(), ValueType::I64);
+        assert_eq!(U64Values::default().value_type(), ValueType::U64);
         assert_eq!(BoolValues::default().value_type(), ValueType::Bool);
-        assert_eq!(StringValues::default().value_type(), ValueType::String)
+        assert_eq!(StringValues::default().value_type(), ValueType::String);
     }
 }
