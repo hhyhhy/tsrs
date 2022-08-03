@@ -35,7 +35,7 @@ impl Row {
 
 pub struct Entry {
     value_type: ValueType,
-    values: Vec<Value>,
+    values: Vec<Row>,
 }
 
 impl Entry {
@@ -48,13 +48,40 @@ impl Entry {
         self.values.len()
     }
 
-    pub fn push(&mut self, v: Value) -> Result<()> {
-        if self.value_type != v.value_type() {
-            return Err(TypeMismatchError::new(self.value_type, v.value_type()));
+    pub fn push(&mut self, r: Row) -> Result<()> {
+        if self.value_type != r.value.value_type() {
+            return Err(TypeMismatchError::new(
+                self.value_type,
+                r.value.value_type(),
+            ));
         }
 
-        self.values.push(v);
+        self.values.push(r);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tsdb::value::{Entry, Row, Value};
+    use crate::tsdb::{TypeMismatchError, ValueType};
+
+    #[test]
+    fn test_entry() {
+        let mut entry = Entry::new(ValueType::I64);
+        let r = entry.push(Row::new(100, Value::I64(10)));
+        assert_eq!(r, Ok(()));
+
+        assert_eq!(entry.len(), 1);
+
+        let r = entry.push(Row::new(200, Value::U64(20)));
+        assert_eq!(
+            r,
+            Err(TypeMismatchError {
+                expect: ValueType::I64,
+                got: ValueType::U64
+            })
+        );
     }
 }
