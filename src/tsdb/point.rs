@@ -34,21 +34,18 @@ pub struct Point {
 
 impl Point {
     pub fn fields(&self) -> Vec<Field> {
-        let mut series_id = String::with_capacity(self.tags.len());
-        series_id.push_str(&self.measurement);
-        series_id.push_str(",");
-        for (key, value) in self.tags.iter() {
-            series_id.push_str(key);
-            series_id.push_str("=");
-            series_id.push_str(value);
-        }
+        let tag = self
+            .tags
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join(",");
+        let series = format!("{},{}", self.measurement, tag);
 
         let mut fields = Vec::with_capacity(self.field.len());
-        for (key, value) in self.field.iter() {
-            let mut series_id = series_id.clone();
-            series_id.push_str(KEY_FIELD_SEPARATOR);
-            series_id.push_str(key);
-            let value = value.clone();
+        for (k, v) in self.field.iter() {
+            let series_id = format!("{}{}{}", series, KEY_FIELD_SEPARATOR, k);
+            let value = v.clone();
             let field = Field { series_id, value };
             fields.push(field);
         }
@@ -60,4 +57,30 @@ impl Point {
 pub struct Field {
     pub series_id: String,
     pub value: FieldValue,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tsdb::point::{FieldValue, Point};
+    use std::collections::BTreeMap;
+    use std::time;
+
+    #[test]
+    fn test_fields() {
+        let time = time::SystemTime::now();
+        let tags = BTreeMap::from([
+            ("host".to_string(), "A".to_string()),
+            ("cpu".to_string(), "0".to_string()),
+        ]);
+        let p = Point {
+            measurement: "cpu".to_string(),
+            tags,
+            time,
+            field: BTreeMap::from([("value".to_string(), FieldValue::I64(10))]),
+        };
+
+        let fields = p.fields();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].series_id, "cpu,cpu=0,host=A#!~#value");
+    }
 }
