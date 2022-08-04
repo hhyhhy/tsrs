@@ -1,6 +1,7 @@
 use super::Result;
 use super::TypeMismatchError;
 use super::ValueType;
+use crate::tsdb::point::FieldValue;
 
 pub enum Value {
     F64(f64),
@@ -22,13 +23,25 @@ impl Value {
     }
 }
 
+impl From<&FieldValue> for Value {
+    fn from(f: &FieldValue) -> Self {
+        match f {
+            FieldValue::F64(v) => Value::F64(*v),
+            FieldValue::I64(v) => Value::I64(*v),
+            FieldValue::U64(v) => Value::U64(*v),
+            FieldValue::Bool(v) => Value::Bool(*v),
+            FieldValue::String(v) => Value::String(v.clone()),
+        }
+    }
+}
+
 pub struct Row {
-    unix_nano: i128,
+    unix_nano: u128,
     value: Value,
 }
 
 impl Row {
-    pub fn new(unix_nano: i128, value: Value) -> Self {
+    pub fn new(unix_nano: u128, value: Value) -> Self {
         Self { unix_nano, value }
     }
 }
@@ -50,13 +63,21 @@ impl Entry {
 
     pub fn push(&mut self, r: Row) -> Result<()> {
         if self.value_type != r.value.value_type() {
-            return Err(TypeMismatchError::new(
-                self.value_type,
-                r.value.value_type(),
-            ));
+            let e = TypeMismatchError::new(self.value_type, r.value.value_type());
+            return Err(e);
         }
 
         self.values.push(r);
+
+        Ok(())
+    }
+
+    pub fn append(&mut self, other: &mut Self) -> Result<()> {
+        if self.value_type != other.value_type {
+            return Err(TypeMismatchError::new(self.value_type, other.value_type));
+        }
+
+        self.values.append(&mut other.values);
 
         Ok(())
     }
@@ -69,19 +90,15 @@ mod tests {
 
     #[test]
     fn test_entry() {
-        let mut entry = Entry::new(ValueType::I64);
+        use ValueType::{I64, U64};
+
+        let mut entry = Entry::new(I64);
         let r = entry.push(Row::new(100, Value::I64(10)));
         assert_eq!(r, Ok(()));
 
         assert_eq!(entry.len(), 1);
 
         let r = entry.push(Row::new(200, Value::U64(20)));
-        assert_eq!(
-            r,
-            Err(TypeMismatchError {
-                expect: ValueType::I64,
-                got: ValueType::U64
-            })
-        );
+        assert_eq!(r, Err(TypeMismatchError::new(I64, U64)));
     }
 }

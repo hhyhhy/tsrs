@@ -1,6 +1,7 @@
 use crate::tsdb::ValueType;
 use std::collections::BTreeMap;
 use std::time;
+use std::time::UNIX_EPOCH;
 
 const KEY_FIELD_SEPARATOR: &str = "#!~#";
 
@@ -25,6 +26,7 @@ impl FieldValue {
     }
 }
 
+#[derive(Clone)]
 pub struct Point {
     pub measurement: String,
     pub tags: BTreeMap<String, String>,
@@ -51,6 +53,10 @@ impl Point {
         }
 
         fields
+    }
+
+    pub fn unix_nano(&self) -> u128 {
+        self.time.duration_since(UNIX_EPOCH).unwrap().as_nanos()
     }
 }
 
