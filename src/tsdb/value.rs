@@ -57,6 +57,10 @@ impl Entry {
         Self { value_type, values }
     }
 
+    pub fn value_type(&self) -> ValueType {
+        self.value_type
+    }
+
     pub fn len(&self) -> usize {
         self.values.len()
     }

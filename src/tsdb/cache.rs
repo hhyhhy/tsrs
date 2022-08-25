@@ -69,7 +69,10 @@ impl Cache {
             } else {
                 drop(guard);
                 let mut guard = self.store[offset].0.write().await;
-                guard.entry(id).or_insert(Arc::new(RwLock::new(new)));
+                let entry = guard
+                    .entry(id)
+                    .or_insert(Arc::new(RwLock::new(Entry::new(new.value_type()))));
+                entry.write().await.append(&mut new)?;
             }
         }
 
